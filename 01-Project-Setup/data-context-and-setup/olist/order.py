@@ -70,48 +70,23 @@ class Order:
         """
         print('getting data')
         reviews = self.data['order_reviews']
-
-        print('defining score functions')
-        def dim_five_star(d):
-            def find_five(n):
-                if n == 5:
-                    return 1
-                return 0
-            return d['review_score'].apply(find_five)
+        print('one stars and five stars...')
+        reviews['dim_is_five_star'] = reviews.review_score.map({5:True},na_action='ignore')
+        reviews['dim_is_one_star'] = reviews.review_score.map({1:True},na_action='ignore')
+        review_score_df = reviews[['order_id', 'dim_is_five_star', 'dim_is_one_star', 'review_score']]
 
 
 
-
-
-        def dim_one_star(d):
-            def find_one(n):
-                if n == 1:
-                    return 1
-                return 0
-            return d['review_score'].apply(find_one)
-
-        print('concatenating dataframe')
-        return pd.concat( [reviews.order_id , dim_five_star(reviews) , dim_one_star(reviews) ,reviews.review_score ] , axis = 1 , keys = ['order_id', 'dim_five_star', 'dim_one_star', 'review_score'])
+        return review_score_df
 
     def get_number_products(self):
         """
         Returns a DataFrame with:
         order_id, number_of_products
         """
-        print('getting data')
-        products = self.data['products']
         order_items = self.data['order_items']
-        orders = self.data['orders']
 
-        print('merging data')
-        order_and_items = order_items.merge(orders , on = 'order_id' , how = 'inner')
-        products_and_orders = order_and_items.merge(products , on = 'product_id' , how = 'inner')
-
-        print('grouping by order id and counting')
-        df = products_and_orders.groupby('order_id').count().sort_values('product_id', ascending = False)['product_id']
-        print('making the dataframe')
-        number_of_products = pd.DataFrame(df)
-        return number_of_products.reset_index()
+        return order_items.groupby(by = 'order_id').count().rename(columns={"order_item_id": "number_of_products"}).sort_values('number_of_products')[['number_of_products']]
 
 
     def get_number_sellers(self):
@@ -119,21 +94,9 @@ class Order:
         Returns a DataFrame with:
         order_id, number_of_sellers
         """
-        print('getting data')
         order_items = self.data['order_items']
-        orders = self.data['orders']
-        sellers = self.data['sellers']
 
-        print('merging data')
-        order_and_items = order_items.merge(orders , on = 'order_id' , how = 'inner')
-        sellers_and_orders = order_and_items.merge(sellers , on = 'seller_id' , how = 'inner')
-
-        print('counting sellers')
-        serie = sellers_and_orders.groupby('order_id').nunique().sort_values('seller_id')['seller_id']
-        print('defining dataframe')
-        number_of_unique_sellers = pd.DataFrame(serie).reset_index()
-
-        return number_of_unique_sellers
+        return order_items.groupby('order_id')['seller_id'].nunique().sort_values().reset_index()
 
 
     def get_price_and_freight(self):
@@ -141,21 +104,11 @@ class Order:
         Returns a DataFrame with:
         order_id, price, freight_value
         """
-
-
-        print('getting data')
         order_items = self.data['order_items']
-        orders = self.data['orders']
+
+        return order_items[['order_id' , 'price' ,'freight_value']].groupby('order_id').sum().reset_index()
 
 
-        print('merging data')
-
-        order_and_items = order_items.merge(orders , on = 'order_id' , how = 'inner')
-
-
-        print('define dataframe')
-        price_and_freight = pd.DataFrame(order_and_items.groupby('order_id').sum()[['price' , 'freight_value']]).reset_index()
-        return price_and_freight
 
 
     # Optional
