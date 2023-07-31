@@ -22,35 +22,41 @@ class Order:
         """
         # Hint: Within this instance method, you have access to the instance of the class Order in the variable self, as well as all its attributes
         orders = self.data['orders']
-        if is_delivered == True:
-            print('filtering none delivered orders')
-            cond1 = orders.order_delivered_customer_date.isnull()
-            cond2 = orders.order_status
 
-            delivered_orders = orders[cond1 == False]
-            delivered_orders = orders[cond2 == 'delivered']
-        else:
-            delivered_orders = orders
+        print('drop null deliveries')
+        orders = orders.dropna(subset= ['order_delivered_customer_date'])
 
         print('changing data type to date time')
 
-        date_columns = delivered_orders.columns[3:]
-
-        for date_column in date_columns:
-            print('changing ' , date_column)
-            delivered_orders[date_column] = pd.to_datetime(delivered_orders[date_column])
-        print('data types changed to datetime')
-
+        orders['order_purchase_timestamp'] = pd.to_datetime(orders['order_purchase_timestamp'])
+        orders['order_approved_at']= pd.to_datetime(orders['order_approved_at'])
+        orders['order_delivered_carrier_date']= pd.to_datetime(orders['order_delivered_carrier_date'])
+        orders['order_delivered_customer_date']= pd.to_datetime(orders['order_delivered_customer_date'])
+        orders['order_estimated_delivery_date'] = pd.to_datetime(orders['order_estimated_delivery_date'])
         print('defining new columns')
 
-        order_id = delivered_orders['order_id']
-        wait_time = (delivered_orders['order_delivered_customer_date'] - delivered_orders['order_purchase_timestamp'])
-        expected_wait_time = delivered_orders['order_estimated_delivery_date'] - delivered_orders['order_purchase_timestamp']
-        delay_vs_expected = wait_time - expected_wait_time
-        order_status = delivered_orders['order_status']
+        import datetime
+        one_day_delta = datetime.timedelta(days=1) # a "timedelta" object of 1 day
 
-        print('creating dataframe wait_time_df')
-        wait_time_df = pd.concat([order_id ,  wait_time , expected_wait_time , delay_vs_expected , order_status], axis = 1 , keys = ['order_id' ,  'wait_time' , 'expected_wait_time' , 'delay_vs_expected' , 'order_status'] )
+        #compute waittime  (order_delivered_customer_date     order_purchase_timestamp         )
+        orders['wait_time'] = (orders.order_delivered_customer_date  - orders.order_purchase_timestamp)/one_day_delta
+        #compute expected waittime
+        orders['expected_wait_time'] = (orders.order_estimated_delivery_date    - orders.order_purchase_timestamp)/one_day_delta
+        #delay vs expected
+
+        orders['delay_vs_expected'] = (orders.order_delivered_customer_date - orders.order_estimated_delivery_date)/one_day_delta
+        #si <0 entonces no hay delay
+
+        def handle_delay(x):
+            if x<=0:
+                return 0
+            else:
+                return x
+
+        orders['delay_vs_expected'] = orders['delay_vs_expected'].apply(handle_delay)
+        wait_time_df = orders[['order_id', 'wait_time', 'expected_wait_time', 'delay_vs_expected']]
+
+
         return wait_time_df
 
 
